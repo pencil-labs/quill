@@ -1,26 +1,28 @@
 import EventEmitter from 'eventemitter3';
-import instances from './instances';
 import logger from './logger';
 
 const debug = logger('quill:events');
 const EVENTS = ['selectionchange', 'mousedown', 'mouseup', 'click'];
 
-EVENTS.forEach(eventName => {
-  document.addEventListener(eventName, (...args) => {
-    Array.from(document.querySelectorAll('.ql-container')).forEach(node => {
-      const quill = instances.get(node);
-      if (quill && quill.emitter) {
-        quill.emitter.handleDOM(...args);
+function registerDOMListeners(dom) {
+  EVENTS.forEach(eventName => {
+    dom.addEventListener(eventName, (...args) => {
+      if (dom.quill && dom.quill.emitter) {
+        dom.quill.emitter.handleDOM(...args);
       }
     });
   });
-});
+}
 
 class Emitter extends EventEmitter {
-  constructor() {
+  constructor(dom = null) {
     super();
     this.listeners = {};
     this.on('error', debug.error);
+    this.dom = dom;
+    if (this.dom) {
+      registerDOMListeners(this.dom);
+    }
   }
 
   emit(...args) {
