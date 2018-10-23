@@ -4,11 +4,11 @@ class Script extends Inline {
   static create(value) {
     if (value === 'super') {
       return document.createElement('sup');
-    }
-    if (value === 'sub') {
+    } else if (value === 'sub') {
       return document.createElement('sub');
+    } else {
+      return super.create(value);
     }
-    return super.create(value);
   }
 
   static formats(domNode) {

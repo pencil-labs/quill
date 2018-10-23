@@ -1,11 +1,15 @@
 import { BlockEmbed } from '../blots/block';
-import Link from './link';
+import Link from '../formats/link';
 
-const ATTRIBUTES = ['height', 'width'];
+const ATTRIBUTES = [
+  'height',
+  'width'
+];
+
 
 class Video extends BlockEmbed {
   static create(value) {
-    const node = super.create(value);
+    let node = super.create(value);
     node.setAttribute('frameborder', '0');
     node.setAttribute('allowfullscreen', true);
     node.setAttribute('src', this.sanitize(value));
@@ -13,7 +17,7 @@ class Video extends BlockEmbed {
   }
 
   static formats(domNode) {
-    return ATTRIBUTES.reduce((formats, attribute) => {
+    return ATTRIBUTES.reduce(function(formats, attribute) {
       if (domNode.hasAttribute(attribute)) {
         formats[attribute] = domNode.getAttribute(attribute);
       }
@@ -22,7 +26,7 @@ class Video extends BlockEmbed {
   }
 
   static sanitize(url) {
-    return Link.sanitize(url); // eslint-disable-line import/no-named-as-default-member
+    return Link.sanitize(url);
   }
 
   static value(domNode) {
@@ -40,14 +44,10 @@ class Video extends BlockEmbed {
       super.format(name, value);
     }
   }
-
-  html() {
-    const { video } = this.value();
-    return `<a href="${video}">${video}</a>`;
-  }
 }
 Video.blotName = 'video';
 Video.className = 'ql-video';
 Video.tagName = 'IFRAME';
+
 
 export default Video;

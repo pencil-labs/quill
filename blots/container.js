@@ -1,5 +1,9 @@
-import { ContainerBlot } from 'parchment';
+import Parchment from 'parchment';
+import Block, { BlockEmbed } from './block';
 
-class Container extends ContainerBlot {}
+
+class Container extends Parchment.Container { }
+Container.allowedChildren = [Block, BlockEmbed, Container];
+
 
 export default Container;

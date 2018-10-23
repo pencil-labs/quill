@@ -1,19 +1,28 @@
-import { Scope, ScrollBlot, ContainerBlot } from 'parchment';
+import Parchment from 'parchment';
 import Emitter from '../core/emitter';
 import Block, { BlockEmbed } from './block';
 import Break from './break';
+import CodeBlock from '../formats/code';
 import Container from './container';
 
+
 function isLine(blot) {
-  return blot instanceof Block || blot instanceof BlockEmbed;
+  return (blot instanceof Block || blot instanceof BlockEmbed);
 }
 
-class Scroll extends ScrollBlot {
-  constructor(registry, domNode, { emitter }) {
-    super(registry, domNode);
-    this.emitter = emitter;
+
+class Scroll extends Parchment.Scroll {
+  constructor(domNode, config) {
+    super(domNode);
+    this.emitter = config.emitter;
+    if (Array.isArray(config.whitelist)) {
+      this.whitelist = config.whitelist.reduce(function(whitelist, format) {
+        whitelist[format] = true;
+        return whitelist;
+      }, {});
+    }
     // Some reason fixes composition issues with character languages in Windows/Chrome, Safari
-    this.domNode.addEventListener('DOMNodeInserted', () => {});
+    this.domNode.addEventListener('DOMNodeInserted', function() {});
     this.optimize();
     this.enable();
   }
@@ -27,25 +36,31 @@ class Scroll extends ScrollBlot {
     this.optimize();
   }
 
-  emitMount(blot) {
-    this.emitter.emit(Emitter.events.SCROLL_BLOT_MOUNT, blot);
-  }
-
-  emitUnmount(blot) {
-    this.emitter.emit(Emitter.events.SCROLL_BLOT_UNMOUNT, blot);
-  }
-
   deleteAt(index, length) {
-    const [first, offset] = this.line(index);
-    const [last] = this.line(index + length);
+    let [first, offset] = this.line(index);
+    let [last, ] = this.line(index + length);
     super.deleteAt(index, length);
     if (last != null && first !== last && offset > 0) {
       if (first instanceof BlockEmbed || last instanceof BlockEmbed) {
         this.optimize();
         return;
       }
-      const ref =
-        last.children.head instanceof Break ? null : last.children.head;
+      if (first instanceof CodeBlock) {
+        let newlineIndex = first.newlineIndex(first.length(), true);
+        if (newlineIndex > -1) {
+          first = first.split(newlineIndex + 1);
+          if (first === last) {
+            this.optimize();
+            return;
+          }
+        }
+      } else if (last instanceof CodeBlock) {
+        let newlineIndex = last.newlineIndex(0);
+        if (newlineIndex > -1) {
+          last.split(newlineIndex + 1);
+        }
+      }
+      let ref = last.children.head instanceof Break ? null : last.children.head;
       first.moveChildren(last, ref);
       first.remove();
     }
@@ -57,22 +72,23 @@ class Scroll extends ScrollBlot {
   }
 
   formatAt(index, length, format, value) {
+    if (this.whitelist != null && !this.whitelist[format]) return;
     super.formatAt(index, length, format, value);
     this.optimize();
   }
 
   insertAt(index, value, def) {
+    if (def != null && this.whitelist != null && !this.whitelist[value]) return;
     if (index >= this.length()) {
-      if (def == null || this.scroll.query(value, Scope.BLOCK) == null) {
-        const blot = this.scroll.create(this.statics.defaultChild.blotName);
+      if (def == null || Parchment.query(value, Parchment.Scope.BLOCK) == null) {
+        let blot = Parchment.create(this.statics.defaultChild);
         this.appendChild(blot);
         if (def == null && value.endsWith('\n')) {
-          blot.insertAt(0, value.slice(0, -1), def);
-        } else {
-          blot.insertAt(0, value, def);
+          value = value.slice(0, -1);
         }
+        blot.insertAt(0, value, def);
       } else {
-        const embed = this.scroll.create(value, def);
+        let embed = Parchment.create(value, def);
         this.appendChild(embed);
       }
     } else {
@@ -82,17 +98,12 @@ class Scroll extends ScrollBlot {
   }
 
   insertBefore(blot, ref) {
-    if (blot.statics.scope === Scope.INLINE_BLOT) {
-      const wrapper = this.scroll.create(this.statics.defaultChild.blotName);
+    if (blot.statics.scope === Parchment.Scope.INLINE_BLOT) {
+      let wrapper = Parchment.create(this.statics.defaultChild);
       wrapper.appendChild(blot);
-      super.insertBefore(wrapper, ref);
-    } else {
-      super.insertBefore(blot, ref);
+      blot = wrapper;
     }
-  }
-
-  isEnabled() {
-    return this.domNode.getAttribute('contenteditable') === 'true';
+    super.insertBefore(blot, ref);
   }
 
   leaf(index) {
@@ -107,21 +118,16 @@ class Scroll extends ScrollBlot {
   }
 
   lines(index = 0, length = Number.MAX_VALUE) {
-    const getLines = (blot, blotIndex, blotLength) => {
-      let lines = [];
-      let lengthLeft = blotLength;
-      blot.children.forEachAt(
-        blotIndex,
-        blotLength,
-        (child, childIndex, childLength) => {
-          if (isLine(child)) {
-            lines.push(child);
-          } else if (child instanceof ContainerBlot) {
-            lines = lines.concat(getLines(child, childIndex, lengthLeft));
-          }
-          lengthLeft -= childLength;
-        },
-      );
+    let getLines = (blot, index, length) => {
+      let lines = [], lengthLeft = length;
+      blot.children.forEachAt(index, length, function(child, index, length) {
+        if (isLine(child)) {
+          lines.push(child);
+        } else if (child instanceof Parchment.Container) {
+          lines = lines.concat(getLines(child, index, lengthLeft));
+        }
+        lengthLeft -= length;
+      });
       return lines;
     };
     return getLines(this, index, length);
@@ -136,11 +142,7 @@ class Scroll extends ScrollBlot {
   }
 
   path(index) {
-    return super.path(index).slice(1); // Exclude self
-  }
-
-  remove() {
-    // Never remove self
+    return super.path(index).slice(1);  // Exclude self
   }
 
   update(mutations) {
@@ -155,7 +157,7 @@ class Scroll extends ScrollBlot {
     if (mutations.length > 0) {
       this.emitter.emit(Emitter.events.SCROLL_BEFORE_UPDATE, source, mutations);
     }
-    super.update(mutations.concat([])); // pass copy
+    super.update(mutations.concat([]));   // pass copy
     if (mutations.length > 0) {
       this.emitter.emit(Emitter.events.SCROLL_UPDATE, source, mutations);
     }
@@ -164,7 +166,8 @@ class Scroll extends ScrollBlot {
 Scroll.blotName = 'scroll';
 Scroll.className = 'ql-editor';
 Scroll.tagName = 'DIV';
-Scroll.defaultChild = Block;
+Scroll.defaultChild = 'block';
 Scroll.allowedChildren = [Block, BlockEmbed, Container];
+
 
 export default Scroll;

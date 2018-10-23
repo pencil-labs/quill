@@ -6,4 +6,5 @@ class Module {
 }
 Module.DEFAULTS = {};
 
+
 export default Module;

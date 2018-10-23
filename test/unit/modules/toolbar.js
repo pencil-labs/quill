@@ -1,6 +1,7 @@
 import Quill from '../../../core/quill';
 import { addControls } from '../../../modules/toolbar';
 
+
 describe('Toolbar', function() {
   describe('add controls', function() {
     it('single level', function() {
@@ -14,10 +15,7 @@ describe('Toolbar', function() {
     });
 
     it('nested group', function() {
-      addControls(this.container, [
-        ['bold', 'italic'],
-        ['underline', 'strike'],
-      ]);
+      addControls(this.container, [['bold', 'italic'], ['underline', 'strike']]);
       expect(this.container).toEqualHTML(`
         <span class="ql-formats">
           <button type="button" class="ql-bold"></button>
@@ -56,17 +54,10 @@ describe('Toolbar', function() {
 
     it('everything', function() {
       addControls(this.container, [
-        [
-          { font: [false, 'sans-serif', 'monospace'] },
-          { size: ['10px', false, '18px', '32px'] },
-        ],
+        [{ font: [false, 'sans-serif', 'monospace']}, { size: ['10px', false, '18px', '32px'] }],
         ['bold', 'italic', 'underline', 'strike'],
-        [
-          { list: 'ordered' },
-          { list: 'bullet' },
-          { align: [false, 'center', 'right', 'justify'] },
-        ],
-        ['link', 'image'],
+        [{ list: 'ordered' }, { list: 'bullet' }, { align: [false, 'center', 'right', 'justify'] }],
+        ['link', 'image']
       ]);
       expect(this.container).toEqualHTML(`
         <span class="ql-formats">
@@ -106,34 +97,61 @@ describe('Toolbar', function() {
     });
   });
 
+  describe('shadow dom', function() {
+    // Some browsers don't support shadow DOM
+    if (!document.head.attachShadow) {
+      return;
+    }
+
+    let container;
+    let editor;
+
+    beforeEach(function() {
+      container = document.createElement('div');
+      container.attachShadow({ mode: 'open' });
+      container.shadowRoot.innerHTML = `
+        <div class="editor"></div>
+        <div class="toolbar"></div>`;
+
+      editor = new Quill(container.shadowRoot.querySelector('.editor'), {
+        modules: {
+          toolbar: '.toolbar'
+        }
+      });
+    });
+
+    it('should initialise', function() {
+      const editorDiv = container.shadowRoot.querySelector('.editor');
+      const toolbarDiv = container.shadowRoot.querySelector('.toolbar');
+      expect(editorDiv.className).toBe('editor ql-container');
+      expect(toolbarDiv.className).toBe('toolbar ql-toolbar');
+      expect(editor.container).toBe(editorDiv);
+    });
+  });
+
   describe('active', function() {
     beforeEach(function() {
-      const container = this.initialize(
-        HTMLElement,
-        `
+      let container = this.initialize(HTMLElement, `
         <p>0123</p>
         <p><strong>5678</strong></p>
         <p><a href="http://quilljs.com/">0123</a></p>
         <p class="ql-align-center">5678</p>
         <p><span class="ql-size-small">01</span><span class="ql-size-large">23</span></p>
-      `,
-      );
+      `);
       this.quill = new Quill(container, {
         modules: {
           toolbar: [
             ['bold', 'link'],
-            [{ size: ['small', false, 'large'] }],
-            [{ align: '' }, { align: 'center' }],
-          ],
+            [{ 'size': ['small', false, 'large'] }],
+            [{ 'align': '' }, { 'align': 'center' }]
+          ]
         },
-        theme: 'snow',
+        theme: 'snow'
       });
     });
 
     it('toggle button', function() {
-      const boldButton = this.container.parentNode.querySelector(
-        'button.ql-bold',
-      );
+      let boldButton = this.container.parentNode.querySelector('button.ql-bold');
       this.quill.setSelection(7);
       expect(boldButton.classList.contains('ql-active')).toBe(true);
       this.quill.setSelection(2);
@@ -141,9 +159,7 @@ describe('Toolbar', function() {
     });
 
     it('link', function() {
-      const linkButton = this.container.parentNode.querySelector(
-        'button.ql-link',
-      );
+      let linkButton = this.container.parentNode.querySelector('button.ql-link');
       this.quill.setSelection(12);
       expect(linkButton.classList.contains('ql-active')).toBe(true);
       this.quill.setSelection(2);
@@ -151,9 +167,7 @@ describe('Toolbar', function() {
     });
 
     it('dropdown', function() {
-      const sizeSelect = this.container.parentNode.querySelector(
-        'select.ql-size',
-      );
+      let sizeSelect = this.container.parentNode.querySelector('select.ql-size');
       this.quill.setSelection(21);
       expect(sizeSelect.selectedIndex).toEqual(0);
       this.quill.setSelection(23);
@@ -165,12 +179,8 @@ describe('Toolbar', function() {
     });
 
     it('custom button', function() {
-      const centerButton = this.container.parentNode.querySelector(
-        'button.ql-align[value="center"]',
-      );
-      const leftButton = this.container.parentNode.querySelector(
-        'button.ql-align[value]',
-      );
+      let centerButton = this.container.parentNode.querySelector('button.ql-align[value="center"]');
+      let leftButton = this.container.parentNode.querySelector('button.ql-align[value]');
       this.quill.setSelection(17);
       expect(centerButton.classList.contains('ql-active')).toBe(true);
       expect(leftButton.classList.contains('ql-active')).toBe(false);

@@ -1,5 +1,3 @@
-Note: This branch and README covers the upcoming 2.0 release. View [1.x docs here](https://github.com/quilljs/quill/tree/1.3.6).
-
 <h1 align="center">
   <a href="https://quilljs.com/" title="Quill">Quill Rich Text Editor</a>
 </h1>
@@ -34,9 +32,9 @@ Note: This branch and README covers the upcoming 2.0 release. View [1.x docs her
   </a>
 </p>
 
-[Quill](https://quilljs.com/) is a modern rich text editor built for compatibility and extensibility. It was created by [Jason Chen](https://twitter.com/jhchen) and [Byron Milligan](https://twitter.com/byronmilligan) and actively maintained by [Slab](https://slab.com).
+[QuillJS](https://quilljs.com/) is a modern rich text editor built for compatibility and extensibility. It was created by [Jason Chen](https://twitter.com/jhchen) and [Byron Milligan](https://twitter.com/byronmilligan) and open sourced by Salesforce.
 
-To get started, check out [https://quilljs.com/](https://quilljs.com/) for documentation, guides, and live demos!
+To get started, check out the [Quill](https://quilljs.com/) website for documentation, guides, and live demos!
 
 
 ## Quickstart

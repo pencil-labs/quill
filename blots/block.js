@@ -1,27 +1,64 @@
 import extend from 'extend';
 import Delta from 'quill-delta';
-import {
-  AttributorStore,
-  BlockBlot,
-  EmbedBlot,
-  LeafBlot,
-  Scope,
-} from 'parchment';
+import Parchment from 'parchment';
 import Break from './break';
 import Inline from './inline';
 import TextBlot from './text';
 
+
 const NEWLINE_LENGTH = 1;
 
-class Block extends BlockBlot {
-  constructor(scroll, domNode) {
-    super(scroll, domNode);
+
+class BlockEmbed extends Parchment.Embed {
+  attach() {
+    super.attach();
+    this.attributes = new Parchment.Attributor.Store(this.domNode);
+  }
+
+  delta() {
+    return new Delta().insert(this.value(), extend(this.formats(), this.attributes.values()));
+  }
+
+  format(name, value) {
+    let attribute = Parchment.query(name, Parchment.Scope.BLOCK_ATTRIBUTE);
+    if (attribute != null) {
+      this.attributes.attribute(attribute, value);
+    }
+  }
+
+  formatAt(index, length, name, value) {
+    this.format(name, value);
+  }
+
+  insertAt(index, value, def) {
+    if (typeof value === 'string' && value.endsWith('\n')) {
+      let block = Parchment.create(Block.blotName);
+      this.parent.insertBefore(block, index === 0 ? this : this.next);
+      block.insertAt(0, value.slice(0, -1));
+    } else {
+      super.insertAt(index, value, def);
+    }
+  }
+}
+BlockEmbed.scope = Parchment.Scope.BLOCK_BLOT;
+// It is important for cursor behavior BlockEmbeds use tags that are block level elements
+
+
+class Block extends Parchment.Block {
+  constructor(domNode) {
+    super(domNode);
     this.cache = {};
   }
 
   delta() {
     if (this.cache.delta == null) {
-      this.cache.delta = blockDelta(this);
+      this.cache.delta = this.descendants(Parchment.Leaf).reduce((delta, leaf) => {
+        if (leaf.length() === 0) {
+          return delta;
+        } else {
+          return delta.insert(leaf.value(), bubbleFormats(leaf));
+        }
+      }, new Delta()).insert('\n', bubbleFormats(this));
     }
     return this.cache.delta;
   }
@@ -33,30 +70,21 @@ class Block extends BlockBlot {
 
   formatAt(index, length, name, value) {
     if (length <= 0) return;
-    if (this.scroll.query(name, Scope.BLOCK)) {
+    if (Parchment.query(name, Parchment.Scope.BLOCK)) {
       if (index + length === this.length()) {
         this.format(name, value);
       }
     } else {
-      super.formatAt(
-        index,
-        Math.min(length, this.length() - index - 1),
-        name,
-        value,
-      );
+      super.formatAt(index, Math.min(length, this.length() - index - 1), name, value);
     }
     this.cache = {};
   }
 
   insertAt(index, value, def) {
-    if (def != null) {
-      super.insertAt(index, value, def);
-      this.cache = {};
-      return;
-    }
+    if (def != null) return super.insertAt(index, value, def);
     if (value.length === 0) return;
-    const lines = value.split('\n');
-    const text = lines.shift();
+    let lines = value.split('\n');
+    let text = lines.shift();
     if (text.length > 0) {
       if (index < this.length() - 1 || this.children.tail == null) {
         super.insertAt(Math.min(index, this.length() - 1), text);
@@ -66,15 +94,15 @@ class Block extends BlockBlot {
       this.cache = {};
     }
     let block = this;
-    lines.reduce((lineIndex, line) => {
-      block = block.split(lineIndex, true);
+    lines.reduce(function(index, line) {
+      block = block.split(index, true);
       block.insertAt(0, line);
       return line.length;
     }, index + text.length);
   }
 
   insertBefore(blot, ref) {
-    const { head } = this.children;
+    let head = this.children.head;
     super.insertBefore(blot, ref);
     if (head instanceof Break) {
       head.remove();
@@ -110,88 +138,37 @@ class Block extends BlockBlot {
 
   split(index, force = false) {
     if (force && (index === 0 || index >= this.length() - NEWLINE_LENGTH)) {
-      const clone = this.clone();
+      let clone = this.clone();
       if (index === 0) {
         this.parent.insertBefore(clone, this);
         return this;
+      } else {
+        this.parent.insertBefore(clone, this.next);
+        return clone;
       }
-      this.parent.insertBefore(clone, this.next);
-      return clone;
+    } else {
+      let next = super.split(index, force);
+      this.cache = {};
+      return next;
     }
-    const next = super.split(index, force);
-    this.cache = {};
-    return next;
   }
 }
 Block.blotName = 'block';
 Block.tagName = 'P';
-Block.defaultChild = Break;
-Block.allowedChildren = [Break, Inline, EmbedBlot, TextBlot];
+Block.defaultChild = 'break';
+Block.allowedChildren = [Inline, Parchment.Embed, TextBlot];
 
-class BlockEmbed extends EmbedBlot {
-  attach() {
-    super.attach();
-    this.attributes = new AttributorStore(this.domNode);
-  }
-
-  delta() {
-    return new Delta().insert(
-      this.value(),
-      extend(this.formats(), this.attributes.values()),
-    );
-  }
-
-  format(name, value) {
-    const attribute = this.scroll.query(name, Scope.BLOCK_ATTRIBUTE);
-    if (attribute != null) {
-      this.attributes.attribute(attribute, value);
-    }
-  }
-
-  formatAt(index, length, name, value) {
-    this.format(name, value);
-  }
-
-  insertAt(index, value, def) {
-    if (typeof value === 'string' && value.endsWith('\n')) {
-      const block = this.scroll.create(Block.blotName);
-      this.parent.insertBefore(block, index === 0 ? this : this.next);
-      block.insertAt(0, value.slice(0, -1));
-    } else {
-      super.insertAt(index, value, def);
-    }
-  }
-}
-BlockEmbed.scope = Scope.BLOCK_BLOT;
-// It is important for cursor behavior BlockEmbeds use tags that are block level elements
-
-function blockDelta(blot) {
-  return blot
-    .descendants(LeafBlot)
-    .reduce((delta, leaf) => {
-      if (leaf.length() === 0) {
-        return delta;
-      }
-      return delta.insert(leaf.value(), bubbleFormats(leaf));
-    }, new Delta())
-    .insert('\n', bubbleFormats(blot));
-}
 
 function bubbleFormats(blot, formats = {}) {
   if (blot == null) return formats;
   if (typeof blot.formats === 'function') {
     formats = extend(formats, blot.formats());
-    // exclude syntax highlighting from deltas and getFormat()
-    delete formats['code-token'];
   }
-  if (
-    blot.parent == null ||
-    blot.parent.statics.blotName === 'scroll' ||
-    blot.parent.statics.scope !== blot.statics.scope
-  ) {
+  if (blot.parent == null || blot.parent.blotName == 'scroll' || blot.parent.statics.scope !== blot.statics.scope) {
     return formats;
   }
   return bubbleFormats(blot.parent, formats);
 }
 
-export { blockDelta, bubbleFormats, BlockEmbed, Block as default };
+
+export { bubbleFormats, BlockEmbed, Block as default };

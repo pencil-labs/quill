@@ -5,6 +5,7 @@
   - getText
   - insertEmbed
   - insertText
+  - pasteHTML
   - setContents
   - setText
   - updateContents

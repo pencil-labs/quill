@@ -1,11 +1,16 @@
-import { EmbedBlot } from 'parchment';
-import { sanitize } from './link';
+import Parchment from 'parchment';
+import { sanitize } from '../formats/link';
 
-const ATTRIBUTES = ['alt', 'height', 'width'];
+const ATTRIBUTES = [
+  'alt',
+  'height',
+  'width'
+];
 
-class Image extends EmbedBlot {
+
+class Image extends Parchment.Embed {
   static create(value) {
-    const node = super.create(value);
+    let node = super.create(value);
     if (typeof value === 'string') {
       node.setAttribute('src', this.sanitize(value));
     }
@@ -13,7 +18,7 @@ class Image extends EmbedBlot {
   }
 
   static formats(domNode) {
-    return ATTRIBUTES.reduce((formats, attribute) => {
+    return ATTRIBUTES.reduce(function(formats, attribute) {
       if (domNode.hasAttribute(attribute)) {
         formats[attribute] = domNode.getAttribute(attribute);
       }
@@ -23,15 +28,6 @@ class Image extends EmbedBlot {
 
   static match(url) {
     return /\.(jpe?g|gif|png)$/.test(url) || /^data:image\/.+;base64/.test(url);
-  }
-
-  static register() {
-    if (/Firefox/i.test(navigator.userAgent)) {
-      setTimeout(() => {
-        // Disable image resizing in Firefox
-        document.execCommand('enableObjectResizing', false, false);
-      }, 1);
-    }
   }
 
   static sanitize(url) {
@@ -56,5 +52,6 @@ class Image extends EmbedBlot {
 }
 Image.blotName = 'image';
 Image.tagName = 'IMG';
+
 
 export default Image;

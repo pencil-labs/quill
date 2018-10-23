@@ -1,12 +1,10 @@
+import Keyboard from '../modules/keyboard';
 import DropdownIcon from '../assets/icons/dropdown.svg';
 
 let optionsCounter = 0;
 
 function toggleAriaAttribute(element, attribute) {
-  element.setAttribute(
-    attribute,
-    !(element.getAttribute(attribute) === 'true'),
-  );
+  element.setAttribute(attribute, !(element.getAttribute(attribute) === 'true'));
 }
 
 class Picker {
@@ -20,12 +18,15 @@ class Picker {
     this.label.addEventListener('mousedown', () => {
       this.togglePicker();
     });
-    this.label.addEventListener('keydown', event => {
-      switch (event.key) {
-        case 'Enter':
+    this.label.addEventListener('keydown', (event) => {
+      switch(event.keyCode) {
+        // Allows the "Enter" key to open the picker
+        case Keyboard.keys.ENTER:
           this.togglePicker();
           break;
-        case 'Escape':
+
+        // Allows the "Escape" key to close the picker
+        case Keyboard.keys.ESCAPE:
           this.escape();
           event.preventDefault();
           break;
@@ -43,9 +44,10 @@ class Picker {
   }
 
   buildItem(option) {
-    const item = document.createElement('span');
+    let item = document.createElement('span');
     item.tabIndex = '0';
     item.setAttribute('role', 'button');
+
     item.classList.add('ql-picker-item');
     if (option.hasAttribute('value')) {
       item.setAttribute('data-value', option.getAttribute('value'));
@@ -56,13 +58,16 @@ class Picker {
     item.addEventListener('click', () => {
       this.selectItem(item, true);
     });
-    item.addEventListener('keydown', event => {
-      switch (event.key) {
-        case 'Enter':
+    item.addEventListener('keydown', (event) => {
+      switch(event.keyCode) {
+        // Allows the "Enter" key to select an item
+        case Keyboard.keys.ENTER:
           this.selectItem(item, true);
           event.preventDefault();
           break;
-        case 'Escape':
+
+        // Allows the "Escape" key to close the picker
+        case Keyboard.keys.ESCAPE:
           this.escape();
           event.preventDefault();
           break;
@@ -74,7 +79,7 @@ class Picker {
   }
 
   buildLabel() {
-    const label = document.createElement('span');
+    let label = document.createElement('span');
     label.classList.add('ql-picker-label');
     label.innerHTML = DropdownIcon;
     label.tabIndex = '0';
@@ -85,7 +90,7 @@ class Picker {
   }
 
   buildOptions() {
-    const options = document.createElement('span');
+    let options = document.createElement('span');
     options.classList.add('ql-picker-options');
 
     // Don't want screen readers to read this until options are visible
@@ -99,8 +104,8 @@ class Picker {
 
     this.options = options;
 
-    Array.from(this.select.options).forEach(option => {
-      const item = this.buildItem(option);
+    [].slice.call(this.select.options).forEach((option) => {
+      let item = this.buildItem(option);
       options.appendChild(item);
       if (option.selected === true) {
         this.selectItem(item);
@@ -110,7 +115,7 @@ class Picker {
   }
 
   buildPicker() {
-    Array.from(this.select.attributes).forEach(item => {
+    [].slice.call(this.select.attributes).forEach((item) => {
       this.container.setAttribute(item.name, item.value);
     });
     this.container.classList.add('ql-picker');
@@ -133,16 +138,14 @@ class Picker {
   }
 
   selectItem(item, trigger = false) {
-    const selected = this.container.querySelector('.ql-selected');
+    let selected = this.container.querySelector('.ql-selected');
     if (item === selected) return;
     if (selected != null) {
       selected.classList.remove('ql-selected');
     }
     if (item == null) return;
     item.classList.add('ql-selected');
-    this.select.selectedIndex = Array.from(item.parentNode.children).indexOf(
-      item,
-    );
+    this.select.selectedIndex = [].indexOf.call(item.parentNode.children, item);
     if (item.hasAttribute('data-value')) {
       this.label.setAttribute('data-value', item.getAttribute('data-value'));
     } else {
@@ -154,7 +157,13 @@ class Picker {
       this.label.removeAttribute('data-label');
     }
     if (trigger) {
-      this.select.dispatchEvent(new Event('change'));
+      if (typeof Event === 'function') {
+        this.select.dispatchEvent(new Event('change'));
+      } else if (typeof Event === 'object') {     // IE11
+        let event = document.createEvent('Event');
+        event.initEvent('change', true, true);
+        this.select.dispatchEvent(event);
+      }
       this.close();
     }
   }
@@ -162,19 +171,16 @@ class Picker {
   update() {
     let option;
     if (this.select.selectedIndex > -1) {
-      const item = this.container.querySelector('.ql-picker-options').children[
-        this.select.selectedIndex
-      ];
+      let item = this.container.querySelector('.ql-picker-options').children[this.select.selectedIndex];
       option = this.select.options[this.select.selectedIndex];
       this.selectItem(item);
     } else {
       this.selectItem(null);
     }
-    const isActive =
-      option != null &&
-      option !== this.select.querySelector('option[selected]');
+    let isActive = option != null && option !== this.select.querySelector('option[selected]');
     this.label.classList.toggle('ql-active', isActive);
   }
 }
+
 
 export default Picker;
